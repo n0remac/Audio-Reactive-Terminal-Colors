@@ -35,6 +35,14 @@ Alternative:
 PYTHONPATH=v2 python3 -m music_colors_v2 --scene mood
 ```
 
+List scenes:
+
+```bash
+python3 v2/run.py --list-scenes
+```
+
+If your terminal echoes OSC query replies (looks like `10;rgb:...` in the shell), either run via `start_music_colors_v2.sh` (baseline query off by default) or pass `--no-baseline-query` to the Python command.
+
 Stop with Ctrl+C (it will attempt to reset colors).
 
 ### Notes

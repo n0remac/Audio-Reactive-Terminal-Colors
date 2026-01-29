@@ -20,9 +20,12 @@ def _parse_frac_range(s: str) -> Tuple[float, float]:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="V2: audio-reactive terminal colors (pure engine + OSC backend).")
+    ap = argparse.ArgumentParser(
+        description="V2: audio-reactive terminal colors (pure engine + OSC backend).",
+    )
 
-    ap.add_argument("--scene", default="mood", choices=sorted(SCENES.keys()))
+    ap.add_argument("--scene", default="mood", choices=sorted(SCENES.keys()), help="Select a scene (see --list-scenes).")
+    ap.add_argument("--list-scenes", action="store_true", help="List available scenes and exit.")
 
     ap.add_argument("--fifo", default="/tmp/cava.fifo")
     ap.add_argument("--bars", type=int, default=64)
@@ -64,6 +67,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--no-baseline-query", action="store_true", help="Use fallback baseline (don’t query OSC 10/11/4).")
 
     args = ap.parse_args(argv)
+
+    if args.list_scenes:
+        for name in sorted(SCENES.keys()):
+            print(name)
+        return 0
 
     scene = SCENES[args.scene]
 

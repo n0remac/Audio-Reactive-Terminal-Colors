@@ -43,4 +43,30 @@ SCENES = {
             delta_limit=18,
         ),
     ),
+    "warmcool": Scene(
+        name="warmcool",
+        bg_effect="temperature_shift",
+        fg_effect="saturation_gate",
+        palette_effect="temperature_shift",
+        constraints=Constraints(
+            min_contrast_delta=0.24,
+            protect_indices={0, 7, 8, 15},
+            max_bg_lightness=0.20,
+            max_fg_saturation=0.85,
+            delta_limit=16,
+        ),
+    ),
+    "focus": Scene(
+        name="focus",
+        bg_effect="inverted_loudness",
+        fg_effect="monochrome_wash",
+        palette_effect="gamma_wave",
+        constraints=Constraints(
+            min_contrast_delta=0.26,
+            protect_indices={0, 7, 8, 15},
+            max_bg_lightness=0.16,
+            max_fg_saturation=0.75,
+            delta_limit=14,
+        ),
+    ),
 }

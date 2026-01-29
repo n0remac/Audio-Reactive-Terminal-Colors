@@ -75,3 +75,20 @@ def quantize01(x: float, levels: int) -> float:
         return 1.0 if x >= 0.5 else 0.0
     q = round(x * (levels - 1)) / (levels - 1)
     return clamp01(q)
+
+
+def lerp(a: float, b: float, t: float) -> float:
+    return a + (b - a) * clamp01(t)
+
+
+def mix_hsl(a_h: float, a_s: float, a_l: float, b_h: float, b_s: float, b_l: float, t: float) -> RGB:
+    """
+    Linear mix in HSL space (t in 0..1), hue-wrapped.
+    """
+    t = clamp01(t)
+    # shortest-arc hue blend
+    dh = ((b_h - a_h + 540.0) % 360.0) - 180.0
+    h = (a_h + dh * t) % 360.0
+    s = lerp(a_s, b_s, t)
+    l = lerp(a_l, b_l, t)
+    return hsl_to_rgb(h, s, l)

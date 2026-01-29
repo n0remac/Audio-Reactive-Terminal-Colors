@@ -26,6 +26,34 @@ def bg_bass_impact_tint(baseline: Baseline, signals: Signals, mods: color.Modula
     return color.hsl_to_rgb(h, s, min(l, 0.22))
 
 
+def bg_saturation_breath(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
+    base = baseline.default_bg
+    h, s, l = color.rgb_to_hsl(base)
+    lift = color.quantize01(color.smoothstep(signals.global_), levels=5)
+    s = color.clamp01(s * (0.70 + 0.45 * lift))
+    l = color.clamp01(l * 0.85 + 0.03 + 0.04 * lift)
+    return color.hsl_to_rgb(h, s, l)
+
+
+def bg_temperature_shift(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
+    base = baseline.default_bg
+    h, s, l = color.rgb_to_hsl(base)
+    warmth = (signals.bass - signals.treble) * 0.5 + 0.5  # 0..1 warm vs cool bias
+    warmth_q = color.quantize01(warmth, levels=7)
+    warm_hue = (h + 20.0) % 360.0
+    cool_hue = (h - 40.0) % 360.0
+    return color.mix_hsl(cool_hue, s, l, warm_hue, s, l, warmth_q)
+
+
+def bg_inverted_loudness(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
+    base = baseline.default_bg
+    h, s, l = color.rgb_to_hsl(base)
+    damp = color.quantize01(color.smoothstep(signals.global_), levels=6)
+    l = color.clamp01(l * (1.0 - 0.25 * damp))
+    s = color.clamp01(s * (0.85 + 0.10 * damp))
+    return color.hsl_to_rgb(h, s, l)
+
+
 def fg_spectrum_tint(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
     base = baseline.default_fg
     h, s, l = color.rgb_to_hsl(base)
@@ -52,6 +80,30 @@ def fg_contrast_locked(baseline: Baseline, signals: Signals, mods: color.Modulat
     bg_l = color.luma(bg)
     l = color.clamp01(0.62 + (bg_l - 0.12) * 0.35 + 0.10 * intensity)
     s = color.clamp01(s * (0.90 + 0.15 * intensity))
+    return color.hsl_to_rgb(hue, s, l)
+
+
+def fg_saturation_gate(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
+    base = baseline.default_fg
+    h, s, l = color.rgb_to_hsl(base)
+    gate = color.quantize01(color.smoothstep(signals.global_), levels=6)
+    s = color.clamp01(s * (0.65 + 0.55 * gate))
+    return color.hsl_to_rgb(h, s, l)
+
+
+def fg_monochrome_wash(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
+    base = baseline.default_fg
+    h, s, l = color.rgb_to_hsl(base)
+    wash = 1.0 - color.quantize01(color.smoothstep(signals.global_), levels=7)
+    s = color.clamp01(s * (0.25 + 0.75 * (1.0 - wash)))
+    return color.hsl_to_rgb(h, s, l)
+
+
+def fg_treble_swing(baseline: Baseline, signals: Signals, mods: color.Modulators) -> RGB:
+    base = baseline.default_fg
+    h, s, l = color.rgb_to_hsl(base)
+    swing = 32.0 * color.quantize01(color.smoothstep(signals.treble), levels=8)
+    hue = h + swing
     return color.hsl_to_rgb(hue, s, l)
 
 
@@ -91,18 +143,92 @@ def palette_spectrum_quantized(
     return out
 
 
+def palette_temperature_shift(
+    baseline: Baseline, signals: Signals, mods: color.Modulators, protect: set[int]
+) -> Dict[int, RGB]:
+    out: Dict[int, RGB] = {}
+    tilt = color.quantize01((signals.bass - signals.treble) * 0.5 + 0.5, levels=7)  # 0 cool -> 1 warm
+    for i, c in enumerate(baseline.palette16):
+        if i in protect:
+            continue
+        h, s, l = color.rgb_to_hsl(c)
+        warm_h = (h + 22.0) % 360.0
+        cool_h = (h - 28.0) % 360.0
+        out[i] = color.mix_hsl(cool_h, s, l, warm_h, s, l, tilt)
+    return out
+
+
+def palette_gamma_wave(
+    baseline: Baseline, signals: Signals, mods: color.Modulators, protect: set[int]
+) -> Dict[int, RGB]:
+    out: Dict[int, RGB] = {}
+    gamma = 0.90 + 0.35 * color.quantize01(color.smoothstep(signals.global_), levels=6)
+    for i, c in enumerate(baseline.palette16):
+        if i in protect:
+            continue
+        h, s, l = color.rgb_to_hsl(c)
+        # gamma-like curve around mid gray
+        l_adj = color.clamp01(pow(max(1e-4, l), gamma))
+        out[i] = color.hsl_to_rgb(h, s, l_adj)
+    return out
+
+
+def palette_complement_sparkle(
+    baseline: Baseline, signals: Signals, mods: color.Modulators, protect: set[int]
+) -> Dict[int, RGB]:
+    out: Dict[int, RGB] = {}
+    sparkle = 0.18 * color.quantize01(color.smoothstep(signals.treble), levels=5)
+    for i, c in enumerate(baseline.palette16):
+        if i in protect:
+            continue
+        h, s, l = color.rgb_to_hsl(c)
+        comp = color.hsl_to_rgb(h + 180.0, s, l)
+        out[i] = color.mix_hsl(h, s, l, (h + 180.0) % 360.0, s, l, sparkle)
+    return out
+
+
+def palette_danger_success(
+    baseline: Baseline, signals: Signals, mods: color.Modulators, protect: set[int]
+) -> Dict[int, RGB]:
+    out: Dict[int, RGB] = {}
+    danger_boost = color.quantize01(color.smoothstep(signals.bass), levels=6)
+    success_boost = color.quantize01(color.smoothstep(signals.mids), levels=6)
+    for i, c in enumerate(baseline.palette16):
+        if i in protect:
+            continue
+        h, s, l = color.rgb_to_hsl(c)
+        if i in {1, 9}:  # reds
+            s = color.clamp01(s * (0.80 + 0.50 * danger_boost))
+            l = color.clamp01(l * (0.90 + 0.25 * danger_boost))
+        elif i in {2, 10}:  # greens
+            s = color.clamp01(s * (0.80 + 0.40 * success_boost))
+            l = color.clamp01(l * (0.92 + 0.22 * success_boost))
+        out[i] = color.hsl_to_rgb(h, s, l)
+    return out
+
+
 BG_EFFECTS = {
     "bass_pulse": bg_bass_pulse,
     "bass_impact_tint": bg_bass_impact_tint,
+    "saturation_breath": bg_saturation_breath,
+    "temperature_shift": bg_temperature_shift,
+    "inverted_loudness": bg_inverted_loudness,
 }
 
 FG_EFFECTS = {
     "spectrum_tint": fg_spectrum_tint,
     "contrast_locked": None,  # special: depends on bg
+    "saturation_gate": fg_saturation_gate,
+    "monochrome_wash": fg_monochrome_wash,
+    "treble_swing": fg_treble_swing,
 }
 
 PALETTE_EFFECTS = {
     "spectrum_quantized": palette_spectrum_quantized,
     "role_hue_rotate": palette_role_preserving_hue_rotation,  # alias -> spectrum_quantized
     "sat_bloom": palette_saturation_bloom_on_peaks,  # alias -> spectrum_quantized
+    "temperature_shift": palette_temperature_shift,
+    "gamma_wave": palette_gamma_wave,
+    "complement_sparkle": palette_complement_sparkle,
+    "danger_success": palette_danger_success,
 }
